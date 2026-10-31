@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yet Another Halo Engine · Hisami</title>
+<meta name="description" content="yet another engine for strix halo">
+<meta name="color-scheme" content="light dark">
+<link rel="preload" href="https://hisamiii.github.io/fonts/SourceSerif4.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="https://hisamiii.github.io/style.css?h=e1146e367f2f4ecbf2cb">
+<link rel="alternate" type="application/atom+xml" title="Hisami" href="https://hisamiii.github.io/atom.xml">
+
+
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="site-name" href="https://hisamiii.github.io/">Hisami</a>
+    <nav class="site-nav">
+      
+      <a href="https://hisamiii.github.io/">Writing</a>
+      <a href="https://hisamiii.github.io/about/">About</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<article>
+  <header class="title-block wrap">
+    
+    <h1>Yet Another Halo Engine</h1>
+    
+    <div class="byline">
+      <span class="author"></span>
+      <time datetime="2026-10-31">31 October 2026</time>
+      <span>5 min read</span>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <section class="abstract">
+      <span class="label">Summary</span>
+      <p>yet another engine for strix halo</p>
+
+    </section>
+    <nav class="contents" aria-label="Contents">
+      <span class="label">Contents</span>
+      <ol>
+        <li><a href="#why">Why?</a></li>
+        <li><a href="#results">Results</a></li>
+        <li><a href="#what">What?</a></li>
+        <li><a href="#now-what">Now what?</a></li>
+        <li><a href="#links">Links</a></li>
+      </ol>
+    </nav>
+  </div>
+
+  <div class="prose">
+<h2 id="why">Why?</h2>
+<p>So a couple months ago I got a Flow Z13 and got interested in local inference, problem was, everything is made for the 64GB+ SKUs. The only model option to run was the Qwen 27B-35B models, and the 35B is... not that great, especially quantized. I spent some time trying to get the 27b model to run decently on llama.cpp and some forks of it, but long context attention degraded prefill to under 200t/s and had massive compositor stutters (&gt;2s frozen every couple seconds), which was just not usable.</p>
+<p>Around 1-2 months ago I was looking at some custom inference engines (Gufo, hipEngine, Halogen, etc) and attempted to run some of them, problem was they still had quite low performance and needed a lot of patching to get smaller quants to run (i.e. q4_k_s, byteshape ones, etc), didn't support quantized K/V, etc. I messed around with an LLM to patch the functionality I wanted into them but results were not that great.</p>
+<p>I eventually just decided to rip out Gufo's kernels for this model and wire them into a custom backend, then found out HRX/Loom existed, and went down the rabbit hole...</p>
+<h2 id="results">Results</h2>
+<p>Model: Qwen3.8-27B UD-IQ4_XS (14.25 GB) with 8-bit K/V. Gufo can't load IQ4_XS (no kernels for its IQ3_XXS / IQ2 tensors) and only has fp16 K/V, so it runs the file its README recommends, UD-Q4_K_XL (17.6 GB), with fp16 K/V.</p>
+<table><thead><tr><th>engine</th><th>version</th><th>backend</th></tr></thead><tbody>
+<tr><td>yah</td><td><code>dfa6e9b</code> (branch oldnpu)</td><td>HRX/Loom, GPU + NPU</td></tr>
+<tr><td>llama.cpp</td><td><code>0ec4027a2</code> (2026-10-30)</td><td>Vulkan</td></tr>
+<tr><td>llama.cpp</td><td><code>0ec4027a2</code> (2026-10-30)</td><td>HIP, ROCm 7.14.1</td></tr>
+<tr><td>Gufo</td><td>0.28.1 (<code>12effe36</code>, 2026-10-31)</td><td>HIP, ROCm 7.14.1</td></tr>
+</tbody></table>
+<h3 id="prefill">Prefill</h3>
+<p>Each line is one prefill of a 128k prompt in 2048-token chunks, and each point is the speed of one chunk at that depth.</p>
+<p><img src="https://hisamiii.github.io/posts/yet-another-halo-engine/ctx.svg" alt="Prefill speed vs context depth" /></p>
+<table><thead><tr><th>engine</th><th style="text-align: right">depth 0</th><th style="text-align: right">32k</th><th style="text-align: right">64k</th><th style="text-align: right">96k</th><th style="text-align: right">127k</th></tr></thead><tbody>
+<tr><td>yah GPU + NPU</td><td style="text-align: right">999</td><td style="text-align: right">527</td><td style="text-align: right">283</td><td style="text-align: right">219</td><td style="text-align: right">185</td></tr>
+<tr><td>yah GPU only</td><td style="text-align: right">690</td><td style="text-align: right">436</td><td style="text-align: right">267</td><td style="text-align: right">226</td><td style="text-align: right">199</td></tr>
+<tr><td>llama.cpp Vulkan</td><td style="text-align: right">365</td><td style="text-align: right">168</td><td style="text-align: right">124</td><td style="text-align: right">97</td><td style="text-align: right">81</td></tr>
+<tr><td>llama.cpp HIP</td><td style="text-align: right">367</td><td style="text-align: right">205</td><td style="text-align: right">163</td><td style="text-align: right">135</td><td style="text-align: right">117</td></tr>
+<tr><td>Gufo (Q4_K_XL, fp16 K/V)</td><td style="text-align: right">574</td><td style="text-align: right">277</td><td style="text-align: right">doesn't fit</td><td style="text-align: right"></td><td style="text-align: right"></td></tr>
+</tbody></table>
+<p>tok/s per 2048-token chunk. Gufo's fp16 K/V stops it at 56k on this machine.</p>
+<h3 id="e2e-prefill">E2E prefill</h3>
+<p>Time to prefill a 129,024-token prompt (63 chunks of 2048):</p>
+<table><thead><tr><th>engine</th><th style="text-align: right">time</th><th style="text-align: right">average</th></tr></thead><tbody>
+<tr><td>yah GPU + NPU</td><td style="text-align: right">430 s</td><td style="text-align: right">300 tok/s</td></tr>
+<tr><td>yah GPU only</td><td style="text-align: right">443 s</td><td style="text-align: right">291 tok/s</td></tr>
+<tr><td>llama.cpp Vulkan</td><td style="text-align: right">1011 s</td><td style="text-align: right">128 tok/s</td></tr>
+<tr><td>llama.cpp HIP</td><td style="text-align: right">774 s</td><td style="text-align: right">167 tok/s</td></tr>
+<tr><td>Gufo</td><td style="text-align: right">doesn't fit</td><td style="text-align: right"></td></tr>
+</tbody></table>
+<h3 id="decode">Decode</h3>
+<table><thead><tr><th>engine</th><th style="text-align: right">at 2k</th><th style="text-align: right">at 129k</th><th style="text-align: right">4096 tokens from empty</th></tr></thead><tbody>
+<tr><td>yah (GPU)</td><td style="text-align: right">15.9</td><td style="text-align: right">7.0</td><td style="text-align: right">11.0</td></tr>
+<tr><td>llama.cpp Vulkan</td><td style="text-align: right">12.5</td><td style="text-align: right">9.7</td><td style="text-align: right">13.8</td></tr>
+<tr><td>llama.cpp HIP</td><td style="text-align: right">14.5</td><td style="text-align: right">6.0</td><td style="text-align: right">12.4</td></tr>
+<tr><td>Gufo (Q4_K_XL)</td><td style="text-align: right">12.6 at 0</td><td style="text-align: right">7.1 at 55k</td><td style="text-align: right">9.0</td></tr>
+</tbody></table>
+<p>tok/s, greedy. "at 2k" and "at 129k" are 32 tokens after a prefill to that depth. The 4096-token runs start cool at 156 W and the firmware brings every engine down to its 45 W sustained limit within about a minute, so they mostly measure decode at 45 W, where yah runs at ~10 tok/s (16 before the limit drops).</p>
+<h3 id="quality">Quality</h3>
+<p>KL divergence against the BF16 model on 24 WikiText-2 chunks of 2048 tokens (scored on the second half of each, 24,552 positions):</p>
+<table><thead><tr><th>engine</th><th style="text-align: right">mean KL</th><th style="text-align: right">p99</th><th style="text-align: right">top-1</th><th style="text-align: right">PPL</th></tr></thead><tbody>
+<tr><td>yah GPU only</td><td style="text-align: right">0.0164</td><td style="text-align: right">0.169</td><td style="text-align: right">94.27%</td><td style="text-align: right">6.291</td></tr>
+<tr><td>llama.cpp Vulkan</td><td style="text-align: right">0.0165</td><td style="text-align: right">0.167</td><td style="text-align: right">94.22%</td><td style="text-align: right">6.291</td></tr>
+<tr><td>llama.cpp HIP</td><td style="text-align: right">0.0180</td><td style="text-align: right">0.185</td><td style="text-align: right">94.09%</td><td style="text-align: right">6.261</td></tr>
+</tbody></table>
+<p>yah GPU + NPU was only measured on the first 2 chunks: mean KL 0.0097 and 0.0147, the same as llama.cpp Vulkan on those chunks (GPU only: 0.0093 and 0.0145).</p>
+<h3 id="memory">Memory</h3>
+<p>Peak memory of the 128k prefill, measured as the drop in the system's available memory:</p>
+<table><thead><tr><th>engine</th><th>K/V</th><th style="text-align: right">peak</th></tr></thead><tbody>
+<tr><td>yah GPU + NPU</td><td>8-bit</td><td style="text-align: right">22.6 GiB</td></tr>
+<tr><td>yah GPU only</td><td>8-bit</td><td style="text-align: right">21.9 GiB</td></tr>
+<tr><td>llama.cpp Vulkan</td><td>q8_0</td><td style="text-align: right">18.7 GiB</td></tr>
+<tr><td>llama.cpp HIP</td><td>q8_0</td><td style="text-align: right">18.9 GiB</td></tr>
+<tr><td>Gufo (Q4_K_XL)</td><td>fp16</td><td style="text-align: right">23.0 GiB at 56k</td></tr>
+</tbody></table>
+<p>The GPU can address 24 GiB (GTT), and about 24 GiB is free with a desktop running.</p>
+<h3 id="model-load">Model load</h3>
+<p>Process start to ready for a prompt, cold (page cache dropped, the file comes off the SSD) and warm:</p>
+<table><thead><tr><th>engine</th><th style="text-align: right">cold</th><th style="text-align: right">warm</th></tr></thead><tbody>
+<tr><td>yah GPU + NPU</td><td style="text-align: right">9.9 s</td><td style="text-align: right">8.0 s</td></tr>
+<tr><td>yah GPU only</td><td style="text-align: right">6.8 s</td><td style="text-align: right">6.8 s</td></tr>
+<tr><td>llama.cpp Vulkan</td><td style="text-align: right">4.1 s</td><td style="text-align: right">3.3 s</td></tr>
+<tr><td>llama.cpp HIP</td><td style="text-align: right">3.4 s</td><td style="text-align: right">3.1 s</td></tr>
+</tbody></table>
+<h3 id="test-hardware">Test hardware</h3>
+<p>This was ran on a Flow Z13 32GB running Gentoo, with power capped at 130W (thermally throttling below that).</p>
+<h2 id="what">What?</h2>
+<p>These optimizations were gotten from a mix of things:
+The NPU split, although not completely maxed out (the NPU can hit peak compute of the same rate as the GPU, 59TFLOPs), significantly boosts performance in prefill. Initially the NPU barely boosted performance, as too much preparation work (dequant of weights especially) was done on the GPU to move to the NPU after, which tanked performance due to lots of DRAM traffic. After a lot of work it was rebalanced to fully independent execution with sync through flags in memory directly, for the lowest possible latency and minimal bandwidth usage.</p>
+<p>I also managed to significantly increase the GPU-only performance through significant tuning, compiler tweaks, redesigns, and so on, which were allowed by the introduction of HRX/Loom by AMD recently. The initial port of HIP kernels to HRX made the performance 8x worse, after some work down to 5.7x, and then brought down to parity where the real tuning started, and it was beaten by a significant margin, though it needed a lot of Loom patches (27!!! and another 19 for the NPU split).</p>
+<h2 id="now-what">Now what?</h2>
+<p>The next step is to bring up the NPU to be much closer to its compute ceiling with possible redesigns of some components. the GPU kernels are also likely not fully optimal (although some sections achieve over 90% of peak compute, there is some tuning to be had over full prefill and also long context attention), in theory we can improve performance by another 50% by tuning the split further, as the NPU is at like 30% of its compute ceiling here.</p>
+<h2 id="links">Links</h2>
+<ul>
+<li><a rel="external" href="https://github.com/hisamiii/yet-another-halo-engine">yet-another-halo-engine</a></li>
+<li><a rel="external" href="https://github.com/gufo-org/gufo">Gufo</a></li>
+<li><a rel="external" href="https://github.com/ggml-org/llama.cpp">llama.cpp</a></li>
+<li><a rel="external" href="https://github.com/Geramy/LSE">LSE</a></li>
+<li><a rel="external" href="https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/blob/main/Qwen3.8-27B-UD-IQ4_XS.gguf">Qwen3.8-27B UD-IQ4_XS</a></li>
+</ul>
+
+  </div>
+  <nav class="post-nav wrap">
+    <a href="https://hisamiii.github.io/">← All writing</a>
+    
+  </nav>
+</article>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">Hisami · hisamiii.github.io · built with Zola</div>
+</footer>
+</body>
+</html>

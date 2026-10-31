@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 420" font-family="Google Sans Flex, sans-serif" font-size="15">
+<style>
+.t{fill:#6c6f85}.d{fill:#4c4f69}.b{fill:#1e66f5}.p{fill:none;stroke:#6c6f85;stroke-dasharray:4 3}
+@media (prefers-color-scheme: dark){.t{fill:#a6adc8}.d{fill:#cdd6f4}.b{fill:#5b8def}.p{stroke:#a6adc8}}
+</style>
+<text x="0" y="19"><tspan class="t">Oct 2</tspan><tspan class="d" dx="8">the HIP engine we started from</tspan></text>
+<rect class="b" x="1" y="28" width="128.2" height="18" rx="4"/>
+<text class="d" x="137.2" y="42.0" font-variant-numeric="tabular-nums">606</text>
+<text x="0" y="71"><tspan class="t">Oct 2</tspan><tspan class="d" dx="8">every kernel ported to Loom</tspan></text>
+<rect class="b" x="1" y="80" width="138.3" height="18" rx="4"/>
+<text class="d" x="147.3" y="94.0" font-variant-numeric="tabular-nums">654</text>
+<text x="0" y="123"><tspan class="t">Oct 3</tspan><tspan class="d" dx="8">GEMMs tuned</tspan></text>
+<rect class="b" x="1" y="132" width="146.8" height="18" rx="4"/>
+<text class="d" x="155.8" y="146.0" font-variant-numeric="tabular-nums">694</text>
+<text x="0" y="175"><tspan class="t">Oct 13</tspan><tspan class="d" dx="8">last IQ4_XS build</tspan></text>
+<rect class="b" x="1" y="184" width="171.3" height="18" rx="4"/>
+<text class="d" x="180.3" y="198.0" font-variant-numeric="tabular-nums">810</text>
+<text x="0" y="227"><tspan class="t">Oct 22</tspan><tspan class="d" dx="8">W4A4 on the int4 WMMA</tspan></text>
+<rect class="b" x="1" y="236" width="307.7" height="18" rx="4"/>
+<text class="d" x="316.7" y="250.0" font-variant-numeric="tabular-nums">1,455</text>
+<text x="0" y="279"><tspan class="t">Oct 26</tspan><tspan class="d" dx="8">+ NPU takes part of the FFN</tspan></text>
+<rect class="b" x="1" y="288" width="361.0" height="18" rx="4"/>
+<text class="d" x="370.0" y="302.0" font-variant-numeric="tabular-nums">1,707</text>
+<text x="0" y="331"><tspan class="t">final</tspan><tspan class="d" dx="8">GPU only</tspan></text>
+<rect class="p" x="1.5" y="340.5" width="388.2" height="17" rx="4"/>
+<text class="t" x="398.2" y="354.0">TBD</text>
+<text x="0" y="383"><tspan class="t">final</tspan><tspan class="d" dx="8">GPU + NPU</tspan></text>
+<rect class="p" x="1.5" y="392.5" width="388.2" height="17" rx="4"/>
+<text class="t" x="398.2" y="406.0">TBD</text>
+</svg>

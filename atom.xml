@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+    <title>Hisami</title>
+    <subtitle>writeups on things i&#39;m working on</subtitle>
+    <link rel="self" type="application/atom+xml" href="https://hisamiii.github.io/atom.xml"/>
+    <link rel="alternate" type="text/html" href="https://hisamiii.github.io"/>
+    <generator uri="https://www.getzola.org/">Zola</generator>
+    <updated>2026-10-31T00:00:00+00:00</updated>
+    <id>https://hisamiii.github.io/atom.xml</id>
+    <entry xml:lang="en">
+        <title>Yet Another Halo Engine</title>
+        <published>2026-10-31T00:00:00+00:00</published>
+        <updated>2026-10-31T00:00:00+00:00</updated>
+        <author><name></name></author>
+        <link rel="alternate" type="text/html" href="https://hisamiii.github.io/posts/yet-another-halo-engine/"/>
+        <id>https://hisamiii.github.io/posts/yet-another-halo-engine/</id>
+        <summary>yet another engine for strix halo</summary>
+        <content type="html" xml:base="https://hisamiii.github.io/posts/yet-another-halo-engine/">&lt;h2 id=&quot;why&quot;&gt;Why?&lt;/h2&gt;
+&lt;p&gt;So a couple months ago I got a Flow Z13 and got interested in local inference, problem was, everything is made for the 64GB+ SKUs. The only model option to run was the Qwen 27B-35B models, and the 35B is... not that great, especially quantized. I spent some time trying to get the 27b model to run decently on llama.cpp and some forks of it, but long context attention degraded prefill to under 200t/s and had massive compositor stutters (&amp;gt;2s frozen every couple seconds), which was just not usable.&lt;/p&gt;
+&lt;p&gt;Around 1-2 months ago I was looking at some custom inference engines (Gufo, hipEngine, Halogen, etc) and attempted to run some of them, problem was they still had quite low performance and needed a lot of patching to get smaller quants to run (i.e. q4_k_s, byteshape ones, etc), didn&#39;t support quantized K/V, etc. I messed around with an LLM to patch the functionality I wanted into them but results were not that great.&lt;/p&gt;
+&lt;p&gt;I eventually just decided to rip out Gufo&#39;s kernels for this model and wire them into a custom backend, then found out HRX/Loom existed, and went down the rabbit hole...&lt;/p&gt;
+&lt;h2 id=&quot;results&quot;&gt;Results&lt;/h2&gt;
+&lt;p&gt;Model: Qwen3.8-27B UD-IQ4_XS (14.25 GB) with 8-bit K/V. Gufo can&#39;t load IQ4_XS (no kernels for its IQ3_XXS / IQ2 tensors) and only has fp16 K/V, so it runs the file its README recommends, UD-Q4_K_XL (17.6 GB), with fp16 K/V.&lt;/p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;engine&lt;/th&gt;&lt;th&gt;version&lt;/th&gt;&lt;th&gt;backend&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;yah&lt;/td&gt;&lt;td&gt;&lt;code&gt;dfa6e9b&lt;/code&gt; (branch oldnpu)&lt;/td&gt;&lt;td&gt;HRX/Loom, GPU + NPU&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp&lt;/td&gt;&lt;td&gt;&lt;code&gt;0ec4027a2&lt;/code&gt; (2026-10-30)&lt;/td&gt;&lt;td&gt;Vulkan&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp&lt;/td&gt;&lt;td&gt;&lt;code&gt;0ec4027a2&lt;/code&gt; (2026-10-30)&lt;/td&gt;&lt;td&gt;HIP, ROCm 7.14.1&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Gufo&lt;/td&gt;&lt;td&gt;0.28.1 (&lt;code&gt;12effe36&lt;/code&gt;, 2026-10-31)&lt;/td&gt;&lt;td&gt;HIP, ROCm 7.14.1&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;h3 id=&quot;prefill&quot;&gt;Prefill&lt;/h3&gt;
+&lt;p&gt;Each line is one prefill of a 128k prompt in 2048-token chunks, and each point is the speed of one chunk at that depth.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;https://hisamiii.github.io/posts/yet-another-halo-engine/ctx.svg&quot; alt=&quot;Prefill speed vs context depth&quot; /&gt;&lt;/p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;engine&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;depth 0&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;32k&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;64k&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;96k&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;127k&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;yah GPU + NPU&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;999&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;527&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;283&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;219&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;185&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;yah GPU only&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;690&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;436&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;267&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;226&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;199&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp Vulkan&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;365&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;168&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;124&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;97&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;81&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp HIP&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;367&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;205&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;163&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;135&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;117&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Gufo (Q4_K_XL, fp16 K/V)&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;574&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;277&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;doesn&#39;t fit&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;p&gt;tok/s per 2048-token chunk. Gufo&#39;s fp16 K/V stops it at 56k on this machine.&lt;/p&gt;
+&lt;h3 id=&quot;e2e-prefill&quot;&gt;E2E prefill&lt;/h3&gt;
+&lt;p&gt;Time to prefill a 129,024-token prompt (63 chunks of 2048):&lt;/p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;engine&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;time&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;average&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;yah GPU + NPU&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;430 s&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;300 tok/s&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;yah GPU only&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;443 s&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;291 tok/s&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp Vulkan&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;1011 s&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;128 tok/s&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp HIP&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;774 s&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;167 tok/s&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Gufo&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;doesn&#39;t fit&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;h3 id=&quot;decode&quot;&gt;Decode&lt;/h3&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;engine&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;at 2k&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;at 129k&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;4096 tokens from empty&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;yah (GPU)&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;15.9&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;7.0&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;11.0&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp Vulkan&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;12.5&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;9.7&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;13.8&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp HIP&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;14.5&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;6.0&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;12.4&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Gufo (Q4_K_XL)&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;12.6 at 0&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;7.1 at 55k&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;9.0&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;p&gt;tok/s, greedy. &quot;at 2k&quot; and &quot;at 129k&quot; are 32 tokens after a prefill to that depth. The 4096-token runs start cool at 156 W and the firmware brings every engine down to its 45 W sustained limit within about a minute, so they mostly measure decode at 45 W, where yah runs at ~10 tok/s (16 before the limit drops).&lt;/p&gt;
+&lt;h3 id=&quot;quality&quot;&gt;Quality&lt;/h3&gt;
+&lt;p&gt;KL divergence against the BF16 model on 24 WikiText-2 chunks of 2048 tokens (scored on the second half of each, 24,552 positions):&lt;/p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;engine&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;mean KL&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;p99&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;top-1&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;PPL&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;yah GPU only&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;0.0164&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;0.169&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;94.27%&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;6.291&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp Vulkan&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;0.0165&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;0.167&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;94.22%&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;6.291&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp HIP&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;0.0180&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;0.185&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;94.09%&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;6.261&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;p&gt;yah GPU + NPU was only measured on the first 2 chunks: mean KL 0.0097 and 0.0147, the same as llama.cpp Vulkan on those chunks (GPU only: 0.0093 and 0.0145).&lt;/p&gt;
+&lt;h3 id=&quot;memory&quot;&gt;Memory&lt;/h3&gt;
+&lt;p&gt;Peak memory of the 128k prefill, measured as the drop in the system&#39;s available memory:&lt;/p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;engine&lt;/th&gt;&lt;th&gt;K/V&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;peak&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;yah GPU + NPU&lt;/td&gt;&lt;td&gt;8-bit&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;22.6 GiB&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;yah GPU only&lt;/td&gt;&lt;td&gt;8-bit&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;21.9 GiB&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp Vulkan&lt;/td&gt;&lt;td&gt;q8_0&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;18.7 GiB&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp HIP&lt;/td&gt;&lt;td&gt;q8_0&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;18.9 GiB&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Gufo (Q4_K_XL)&lt;/td&gt;&lt;td&gt;fp16&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;23.0 GiB at 56k&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;p&gt;The GPU can address 24 GiB (GTT), and about 24 GiB is free with a desktop running.&lt;/p&gt;
+&lt;h3 id=&quot;model-load&quot;&gt;Model load&lt;/h3&gt;
+&lt;p&gt;Process start to ready for a prompt, cold (page cache dropped, the file comes off the SSD) and warm:&lt;/p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;engine&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;cold&lt;/th&gt;&lt;th style=&quot;text-align: right&quot;&gt;warm&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;yah GPU + NPU&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;9.9 s&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;8.0 s&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;yah GPU only&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;6.8 s&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;6.8 s&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp Vulkan&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;4.1 s&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;3.3 s&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;llama.cpp HIP&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;3.4 s&lt;/td&gt;&lt;td style=&quot;text-align: right&quot;&gt;3.1 s&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;h3 id=&quot;test-hardware&quot;&gt;Test hardware&lt;/h3&gt;
+&lt;p&gt;This was ran on a Flow Z13 32GB running Gentoo, with power capped at 130W (thermally throttling below that).&lt;/p&gt;
+&lt;h2 id=&quot;what&quot;&gt;What?&lt;/h2&gt;
+&lt;p&gt;These optimizations were gotten from a mix of things:
+The NPU split, although not completely maxed out (the NPU can hit peak compute of the same rate as the GPU, 59TFLOPs), significantly boosts performance in prefill. Initially the NPU barely boosted performance, as too much preparation work (dequant of weights especially) was done on the GPU to move to the NPU after, which tanked performance due to lots of DRAM traffic. After a lot of work it was rebalanced to fully independent execution with sync through flags in memory directly, for the lowest possible latency and minimal bandwidth usage.&lt;/p&gt;
+&lt;p&gt;I also managed to significantly increase the GPU-only performance through significant tuning, compiler tweaks, redesigns, and so on, which were allowed by the introduction of HRX/Loom by AMD recently. The initial port of HIP kernels to HRX made the performance 8x worse, after some work down to 5.7x, and then brought down to parity where the real tuning started, and it was beaten by a significant margin, though it needed a lot of Loom patches (27!!! and another 19 for the NPU split).&lt;/p&gt;
+&lt;h2 id=&quot;now-what&quot;&gt;Now what?&lt;/h2&gt;
+&lt;p&gt;The next step is to bring up the NPU to be much closer to its compute ceiling with possible redesigns of some components. the GPU kernels are also likely not fully optimal (although some sections achieve over 90% of peak compute, there is some tuning to be had over full prefill and also long context attention), in theory we can improve performance by another 50% by tuning the split further, as the NPU is at like 30% of its compute ceiling here.&lt;/p&gt;
+&lt;h2 id=&quot;links&quot;&gt;Links&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a rel=&quot;external&quot; href=&quot;https://github.com/hisamiii/yet-another-halo-engine&quot;&gt;yet-another-halo-engine&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;external&quot; href=&quot;https://github.com/gufo-org/gufo&quot;&gt;Gufo&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;external&quot; href=&quot;https://github.com/ggml-org/llama.cpp&quot;&gt;llama.cpp&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;external&quot; href=&quot;https://github.com/Geramy/LSE&quot;&gt;LSE&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;external&quot; href=&quot;https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/blob/main/Qwen3.8-27B-UD-IQ4_XS.gguf&quot;&gt;Qwen3.8-27B UD-IQ4_XS&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+    </entry>
+</feed>
